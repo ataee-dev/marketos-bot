@@ -2,8 +2,8 @@ name: Marketos Telegram Bot
 
 on:
   schedule:
-    - cron: '0 * * * *'   # هر ساعت
-  workflow_dispatch:        # اجرای دستی از پنل گیت‌هاب
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -21,6 +21,11 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
+      - name: Install system deps (for raqm)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libraqm0 libfreetype6
+
       - name: Install dependencies
         run: pip install -r requirements.txt
 
@@ -29,13 +34,3 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
         run: python bot.py
-
-      - name: Save state
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add last_state.json || true
-          if ! git diff --quiet || ! git diff --staged --quiet; then
-            git commit -m "chore: update state [skip ci]"
-            git push
-          fi
