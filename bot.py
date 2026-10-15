@@ -31,7 +31,6 @@ CHANNEL_URL = "https://t.me/gheimatoo"
 SITE_URL = "gheimatoo.ir"
 NAVASAN_URL = "https://www.navasan.net"
 
-
 # ─────────── تعریف نمادها ───────────
 SYMBOLS = {
     "gold": {
@@ -98,7 +97,6 @@ SYMBOLS = {
     },
 }
 
-# ۱۰ نماد پرکاربرد برای تصویر
 TOP_10_KEYS = [
     "price_dollar_rl",
     "price_eur",
@@ -168,12 +166,22 @@ def fa_text(text):
 
 
 def now_tehran():
-    return jdatetime.datetime.now(locale=jdatetime.FA_LOCALE)
+    """دریافت تاریخ و ساعت فعلی شمسی"""
+    return jdatetime.datetime.now()
 
 
 def get_jalali_str():
+    """قالب‌بندی تاریخ شمسی به فارسی"""
     now = now_tehran()
-    return now.strftime("%A %d %B %Y ساعت %H:%M")
+    weekdays = ["شنبه", "یک‌شنبه", "دوشنبه", "سه‌شنبه", 
+                "چهارشنبه", "پنج‌شنبه", "جمعه"]
+    months = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+              "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
+    
+    # jdatetime: weekday() 0=شنبه
+    wd = weekdays[now.weekday()]
+    m = months[now.month - 1]
+    return f"{wd} {now.day} {m} {now.year} ساعت {now.hour:02d}:{now.minute:02d}"
 
 
 def fetch_json(url):
@@ -245,7 +253,7 @@ def generate_table_image(data):
         font_small = ImageFont.load_default()
         font_price = ImageFont.load_default()
     
-    # ─── هدر با لوگوی قیمتو ───
+    # هدر با لوگو
     logo_path = ASSETS_DIR / "logo.png"
     header_y = 20
     
@@ -257,21 +265,19 @@ def generate_table_image(data):
         except Exception as e:
             print(f"⚠️ لوگو لود نشد: {e}")
     
-    # عنوان
     draw.text((W - 40, header_y + 5), fa_text("قیمتو"), 
               fill="#FFD700", font=font_title, anchor="ra")
     draw.text((W - 40, header_y + 45), fa_text("@gheimatoo"), 
               fill="#94A3B8", font=font_small, anchor="ra")
     
-    # خط جداکننده
     draw.line([(30, 105), (W-30, 105)], fill="#334155", width=2)
     
-    # ─── تاریخ و ساعت ───
+    # تاریخ
     now_str = get_jalali_str()
     draw.text((W//2, 130), fa_text(now_str), 
               fill="#CBD5E1", font=font_small, anchor="mm")
     
-    # ─── جدول ───
+    # جدول
     y_pos = 165
     latest_data = data.get('latest', {}).get('data', {})
     
@@ -290,32 +296,31 @@ def generate_table_image(data):
         if price is None:
             continue
         
-        # رنگ ردیف متناوب
         row_bg = "#1E293B" if i % 2 == 0 else "#0F172A"
         draw.rectangle([(30, y_pos), (W-30, y_pos+58)], fill=row_bg)
         
-        # لوگو سمت راست
-        logo_path = get_logo_path(logo_file)
-        if logo_path:
+        # لوگو
+        logo_p = get_logo_path(logo_file)
+        if logo_p:
             try:
-                ic = Image.open(logo_path).convert("RGBA")
+                ic = Image.open(logo_p).convert("RGBA")
                 ic.thumbnail((40, 40))
                 img.paste(ic, (W - 90, y_pos + 9), ic)
             except Exception:
                 pass
         
-        # نام نماد (راست‌چین)
+        # نام
         draw.text((W - 110, y_pos + 17), fa_text(label), 
                   fill="#F1F5F9", font=font_row, anchor="ra")
         
-        # قیمت (چپ‌چین)
+        # قیمت
         price_str = fmt_price(price, unit)
         draw.text((60, y_pos + 17), fa_text(price_str), 
                   fill="#10B981", font=font_price, anchor="la")
         
         y_pos += 62
     
-    # ─── فوتر ───
+    # فوتر
     draw.line([(30, H-55), (W-30, H-55)], fill="#334155", width=2)
     draw.text((W//2, H-32), fa_text(f"🌐 {SITE_URL}  |  @gheimatoo"), 
               fill="#64748B", font=font_small, anchor="mm")
@@ -413,67 +418,54 @@ def build_gold_message(data):
         "",
     ]
     
-    # دلار آمریکا فروش
     if "price_dollar_rl" in items and items["price_dollar_rl"].get('p'):
         lines.append(f" 💵 دلار آمریکا فروش 🔴 : {fmt_price(items['price_dollar_rl']['p'])}")
         lines.append("")
     
-    # دلار آمریکا خرید (dolati)
     if "price_dollar_dt" in items and items["price_dollar_dt"].get('p'):
         lines.append(f" 💵 دلار آمریکا خرید 🔵 : {fmt_price(items['price_dollar_dt']['p'])}")
         lines.append("")
     
-    # یورو
     if "price_eur" in items and items["price_eur"].get('p'):
         lines.append(f" 💶 یورو فروش : {fmt_price(items['price_eur']['p'])}")
         lines.append("")
     
-    # دلار کانادا
     if "price_cad" in items and items["price_cad"].get('p'):
         lines.append(f" دلار کانادا فروش 🇨🇦 : {fmt_price(items['price_cad']['p'])}")
         lines.append("")
     
-    # درهم امارات
     if "price_aed" in items and items["price_aed"].get('p'):
         lines.append(f" درهم امارات 🇦🇪 : {fmt_price(items['price_aed']['p'])}")
         lines.append("")
     
-    # سکه امامی
     if "sekee" in items and items["sekee"].get('p'):
         lines.append(f" سکه امامی ✴️ : {fmt_price(items['sekee']['p'])}")
         lines.append("")
     
-    # سکه بهار
     if "sekeb" in items and items["sekeb"].get('p'):
         lines.append(f" سکه بهار آزادی ✴️ : {fmt_price(items['sekeb']['p'])}")
         lines.append("")
     
-    # نیم سکه
     if "nim" in items and items["nim"].get('p'):
         lines.append(f" نیم سکه ✴️ : {fmt_price(items['nim']['p'])}")
         lines.append("")
     
-    # ربع سکه
     if "rob" in items and items["rob"].get('p'):
         lines.append(f" ربع سکه ✴️ : {fmt_price(items['rob']['p'])}")
         lines.append("")
     
-    # سکه گرمی
     if "gerami" in items and items["gerami"].get('p'):
         lines.append(f" سکه گرمی ✴️ : {fmt_price(items['gerami']['p'])}")
         lines.append("")
     
-    # طلای ۱۸ عیار
     if "geram18" in items and items["geram18"].get('p'):
         lines.append(f" طلای ۱۸ عیار هر گرم ✴️ : {fmt_price(items['geram18']['p'])}")
         lines.append("")
     
-    # مثقال
     if "mesghal" in items and items["mesghal"].get('p'):
         lines.append(f" مثقال طلای آبشده ✴️ : {fmt_price(items['mesghal']['p'])}")
         lines.append("")
     
-    # لینک و هشتگ
     lines.append("")
     lines.append(f"🌐 {SITE_URL}")
     lines.append("")
@@ -511,7 +503,6 @@ def build_forex_message(data):
     
     lines.append("")
     lines.append(closing)
-    
     return "\n".join(lines)
 
 
@@ -547,7 +538,6 @@ def build_crypto_message(data):
     
     lines.append("")
     lines.append(closing)
-    
     return "\n".join(lines)
 
 
@@ -570,7 +560,6 @@ def build_commodity_message(data):
         "",
     ]
     
-    # انرژی
     lines.append("<b>انرژی</b>")
     for key in ["oil_brent", "oil", "energy_natural_gas"]:
         if key in items and items[key].get('p'):
@@ -584,7 +573,6 @@ def build_commodity_message(data):
                     change = f"  {arrow} {fa_digits(f'{abs(dp):.2f}')}٪"
                 lines.append(f"▪️ {label}  ›  <b>{price}</b>{change}")
     
-    # فلزات گرانبها
     lines.append("")
     lines.append("<b>فلزات گرانبها</b>")
     for key in ["silver", "platinum", "palladium"]:
@@ -599,7 +587,6 @@ def build_commodity_message(data):
                     change = f"  {arrow} {fa_digits(f'{abs(dp):.2f}')}٪"
                 lines.append(f"▪️ {label}  ›  <b>{price}</b>{change}")
     
-    # فلزات پایه
     lines.append("")
     lines.append("<b>فلزات پایه</b>")
     for key in ["copper", "aluminium"]:
@@ -609,7 +596,6 @@ def build_commodity_message(data):
                 price = fmt_price(items[key]['p'], unit)
                 lines.append(f"▪️ {label}  ›  <b>{price}</b>")
     
-    # کشاورزی
     lines.append("")
     lines.append("<b>محصولات کشاورزی</b>")
     for key in ["commodity_us_wheat", "commodity_corn", 
@@ -622,7 +608,6 @@ def build_commodity_message(data):
     
     lines.append("")
     lines.append(closing)
-    
     return "\n".join(lines)
 
 
@@ -676,7 +661,6 @@ def build_cars_message(data, max_items=15):
     
     lines.append("💰 <i>قیمت‌ها به میلیون تومان</i>")
     lines.append(closing)
-    
     return "\n".join(lines)
 
 
@@ -684,7 +668,6 @@ def build_cars_message(data, max_items=15):
 def main():
     print(f"🕐 {get_jalali_str()}")
     
-    # دریافت دیتا
     all_data = {}
     for name, url in SOURCES.items():
         try:
@@ -699,7 +682,7 @@ def main():
         print("❌ دیتای latest دریافت نشد")
         return
     
-    # ─── ۱. پیام طلا و سکه (و سنجاق) ───
+    # ۱. پیام طلا و سکه (سنجاق)
     print("\n📨 پیام ۱: طلا و سکه")
     gold_msg = build_gold_message(latest)
     resp = send_message(gold_msg, make_keyboard())
@@ -713,7 +696,7 @@ def main():
     
     time.sleep(3)
     
-    # ─── ۲. تصویر جدول ───
+    # ۲. تصویر جدول
     print("\n🖼️ ساخت تصویر جدول...")
     try:
         img_path = generate_table_image(all_data)
@@ -725,28 +708,22 @@ def main():
     
     time.sleep(3)
     
-    # ─── ۳. پیام ارز ───
+    # ۳. ارز
     print("\n📨 پیام ۲: ارز")
-    forex_msg = build_forex_message(latest)
-    send_message(forex_msg)
-    
+    send_message(build_forex_message(latest))
     time.sleep(2)
     
-    # ─── ۴. پیام کریپتو ───
+    # ۴. کریپتو
     print("\n📨 پیام ۳: کریپتو")
-    crypto_msg = build_crypto_message(latest)
-    send_message(crypto_msg)
-    
+    send_message(build_crypto_message(latest))
     time.sleep(2)
     
-    # ─── ۵. پیام کالا ───
+    # ۵. کالا
     print("\n📨 پیام ۴: کالا")
-    commodity_msg = build_commodity_message(latest)
-    send_message(commodity_msg)
-    
+    send_message(build_commodity_message(latest))
     time.sleep(2)
     
-    # ─── ۶. پیام خودرو ───
+    # ۶. خودرو
     if all_data.get('domestic'):
         print("\n📨 پیام ۵: خودرو")
         cars_msg = build_cars_message(all_data['domestic'])
